@@ -7,7 +7,7 @@ defmodule JackalopeTest do
   alias JackalopeTest.ScriptedMqttServer, as: MqttServer
   alias Tortoise311.Package
 
-  @work_list_mod Jackalope.TransientWorkList
+  @work_list_mod Jackalope.PersistentWorkList
 
   setup context do
     {:ok, mqtt_server_pid} = start_supervised(MqttServer)
@@ -25,7 +25,8 @@ defmodule JackalopeTest do
                  server: transport,
                  client_id: context.client_id,
                  handler: JackalopeTest.TestHandler,
-                 work_list_mod: @work_list_mod
+                 work_list_mod: @work_list_mod,
+                 data_dir: "/tmp/jackalope"
                )
 
       assert_receive {MqttServer, {:received, %Package.Connect{}}}
@@ -124,7 +125,7 @@ defmodule JackalopeTest do
       assert WorkList.count(work_list) == 4
     end
 
-    test "dropping pending work items", context do
+    test "dropping work items", context do
       connect(context, max_work_list_size: 10)
       pause_mqtt_server(context)
 
@@ -137,10 +138,9 @@ defmodule JackalopeTest do
             {{:publish, "foo", %{"msg" => "hello #{i}"}, [qos: 1]},
              [expiration: Expiration.expiration(:infinity)]}
           )
-          |> WorkList.pending(make_ref())
         end)
 
-      assert WorkList.count_pending(work_list) == 10
+      assert WorkList.count(work_list) == 10
     end
 
     test "reset_pending work items", context do
@@ -213,7 +213,8 @@ defmodule JackalopeTest do
          handler: handler,
          initial_topics: initial_topics,
          max_work_list_size: max_work_list_size,
-         work_list_mod: @work_list_mod
+         work_list_mod: @work_list_mod,
+         data_dir: "/tmp/jackalope"
        ]}
     )
 
